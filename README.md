@@ -1,2 +1,2 @@
 # cross-assembler
-a cross assembler in which you can provide your own opcodes/mneumatics for
+a cross assembler in which you can provide your own opcodes/mnematics for
