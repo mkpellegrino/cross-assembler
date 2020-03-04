@@ -1,0 +1,6 @@
+.org 0x033C
+mylabel:
+	brk
+	ora @0x0F
+	jsr #0xFFD2
+	and #$0x40

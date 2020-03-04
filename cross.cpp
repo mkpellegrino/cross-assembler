@@ -36,7 +36,7 @@ int add_convop1b=0;
 int add_fully_clear_screen=0;
 class offset;
 class label;
-class mneumonic;
+class mnemonic;
 void a(string s);
 void sysCall(string s);
 void addByte(unsigned char);
@@ -45,12 +45,12 @@ vector<label> label_vector;
 vector<label> label_cr_vector;
 vector<offset> offset_vector;
 
-vector<mneumonic> mneumonic_vector;
+vector<mnemonic> mnemonic_vector;
 
-class mneumonic
+class mnemonic
 {
 public:
-  mneumonic( unsigned int c )
+  mnemonic( unsigned int c )
   {
     byte0=c;
   };
@@ -63,10 +63,10 @@ private:
   unsigned int byte0;
   string text;
   int size;
-  friend ostream &operator << (ostream &out, const mneumonic &m);   
+  friend ostream &operator << (ostream &out, const mnemonic &m);   
 };
 
-ostream & operator << (ostream &out, const mneumonic &m) 
+ostream & operator << (ostream &out, const mnemonic &m) 
 {
   out << m.byte0;
   return out; 
@@ -297,6 +297,9 @@ void subtractByte()
 
 void addByte( unsigned char b )
 {
+#ifdef DEBUG
+  cerr << "{" << hex << (unsigned int) b << "}" << endl;
+#endif
   program_index++;
   if( start_counting == 1) memorylocation++;  
   byte_vector.push_back( (unsigned char) b );
@@ -317,8 +320,11 @@ void addOffset(int i)
 
 void addWord( int w=0x0000 )
 {
-  addByte( w&0xFF );
-  addByte( (w&0xFF00 )/0xFF );
+#ifdef DEBUG
+  cerr << "adding word " << hex << w << "= 0x" << (w&0x00FF) << ":" << ((w&0xFF00)>>8) << endl;
+#endif 
+  addByte( (unsigned int)w&0xFF );
+  addByte( (unsigned int)((w&0xFF00)>>8) );
 }
 
 void addAddress( string s )
@@ -370,18 +376,18 @@ void setName( string s )
     }
 }
 
-// THIS IS WHAT PROCESSED EACH MNEUMONIC
+// THIS IS WHAT PROCESSED EACH MNEMONIC
 void a( string s )
 {
-  // look for "s" in the vector of mneumonics
+  // look for "s" in the vector of mnemonics
   // add the byte that is associated with it.
   int found=-1;
-  for( int i=0; i<mneumonic_vector.size(); i++ )
+  for( int i=0; i<mnemonic_vector.size(); i++ )
     {
-      if( s == mneumonic_vector[i].getText() )
+      if( s == mnemonic_vector[i].getText() )
 	{
-	  found=mneumonic_vector[i].getByte();
-	  i=mneumonic_vector.size();
+	  found=mnemonic_vector[i].getByte();
+	  i=mnemonic_vector.size();
 	}
     }
   if( found !=-1 )
@@ -510,8 +516,11 @@ int getType(string s)
   // 16 = unknown
   
   if( s[0] == '0' && s[1] == 'x' && s.length() == 4 ) retVal=4;
+  //else if( s[0] == '#' && s[1] == '$' && s.length() == 4 ) retVal=4;
+  else if( s[0] == '0' && s[1] == 'X' && s.length() == 4 ) retVal=4;
   else if( s[0] == '0' && s[1] == 'x' && s.length() == 6 ) retVal=2;
-  else if( s[0] == '\'' && s[2] == '\'' && s.length()==3 ) retVal=8;
+  else if( s[0] == '0' && s[1] == 'X' && s.length() == 6 ) retVal=2;
+  else if( s[0] == '\'' && s[2] == '\'' && s.length()==3 ) retVal=8; 
   else if( s.length() == 1 ) retVal=8;
   return retVal;
 }
@@ -561,24 +570,24 @@ int main(int argc, char *argv[])
   string opcode_fn = string(argv[2]);
   opcode_fn+=string(".op");
   
-  ifstream mneumonics(opcode_fn);
+  ifstream mnemonics(opcode_fn);
   string cross_line;
-  if( mneumonics.is_open())
+  if( mnemonics.is_open())
     {
-      while (getline(mneumonics, cross_line))
+      while (getline(mnemonics, cross_line))
 	{
 	  // cross_line is my string
-	  // now build the mneumonic
+	  // now build the mnemonic
 	  istringstream ss( cross_line );	  
 	  string s;
 	  getline( ss, s, ':' );
-	  mneumonic tmp_mneumonic(stoi(s));
+	  mnemonic tmp_mnemonic(stoi(s));
 	  getline( ss, s, ':' );
-	  tmp_mneumonic.setSize(stoi(s));
+	  tmp_mnemonic.setSize(stoi(s));
 	  getline( ss, s, ':' );
-	  tmp_mneumonic.setText(s);
+	  tmp_mnemonic.setText(s);
 
-	  mneumonic_vector.push_back(tmp_mneumonic);
+	  mnemonic_vector.push_back(tmp_mnemonic);
 	  
 	}
     }
@@ -637,16 +646,30 @@ int main(int argc, char *argv[])
 #endif	     
 	      // Then we have a directive
 	      
-	      if( line.substr(0,3)==".DB" || line.substr(0,3)==".DW" )
+	      if( line.substr(0,3)==".DB" || line.substr(0,3)==".dw" )
 		{
 		  // turn the rest into a number or numbers
 		  string tmp = removeUnwanted(line.substr(4, line.length() ));
 #ifdef DEBUG
 		  cerr << "[data: " << tmp << "]" << endl;
+		  cerr << "[type: " << getType(tmp) << "]" << endl;
 #endif	      
-		  if( getType(tmp) == 4 ) addByte( stringToHexValue(tmp) );
-		  else if( getType(tmp) == 2) addWord( stringToHexValue(tmp) );
-		  else if( getType(tmp) == 8) addByte( (int) tmp[1]);
+		  if( getType(tmp) == 4 )
+		    {
+		      addByte( stringToHexValue(tmp) );
+		    }
+		  else if( getType(tmp) == 2)
+		    {
+		      addWord( stringToHexValue(tmp) );
+		    }
+		  else if( getType(tmp) == 8)
+		    {
+		      addByte( (int) tmp[1]);
+		    }
+		  else
+		    {
+		      cerr << "error: unknown type of data." << endl;
+		    }
 		}
 	      if( line.substr(0,4) ==".STR" )
 		{
@@ -687,7 +710,7 @@ int main(int argc, char *argv[])
 	      // save the value (either a byte or a word)
 	      // replace the value with a * for byte or
 	      // a ** for word.
-	      // that's the mneumonic
+	      // that's the mnemonic
 	      // then determine if the byte or word is
 	      // a direct value, an offset, or an address.
 	      size_t found;
@@ -708,7 +731,6 @@ int main(int argc, char *argv[])
 #endif
 		  a( line ); processed=1;	  
 		  addAddress( s.substr(1,s.length()) );
-		  
 		}
 
 	      found = line.find('%');
@@ -725,7 +747,38 @@ int main(int argc, char *argv[])
 		  a( line );  processed=1;	  
 		  addOffset( s.substr(1,s.length() ));
 		}
+
+	      found = line.find("#$");
+	      if (found!=string::npos)
+		{
+		  int k=-1; string s = line.substr(found,line.length());
+		  for( int i=0; i<s.length();i++ ){if( s[i]==' ' || s[i]==')' || s[i]==','){k=i;i=s.length();}}
+		  if( k!=-1 ) s=s.substr(0,k);    
+		  line.replace( found, s.length(), string("*") );
+#ifdef DEBUG
+		  cerr << "line of code: " << line << "\tZero Page: " << s << endl;
+#endif
+		  a( line );  processed=1;
+		  addByte( stringToHexValue(s.substr(1,s.length())) );
+		}
+
+	      
 	      found = line.find('#');
+	      if (found!=string::npos)
+		{
+		  int k=-1; string s = line.substr(found,line.length());
+		  for( int i=0; i<s.length();i++ ){if( s[i]==' ' || s[i]==')' || s[i]==','){k=i;i=s.length();}}
+		  if( k!=-1 ) s=s.substr(0,k);    
+
+		  line.replace( found, s.length(), string("**") );
+#ifdef DEBUG
+		  cerr << "line of code: " << line << "\tWord: " << s << endl;
+#endif
+		  a( line );  processed=1;
+		  addWord( stringToHexValue(s.substr(1,s.length())) );
+		}
+
+	      found = line.find('$');
 	      if (found!=string::npos)
 		{
 		  int k=-1; string s = line.substr(found,line.length());
@@ -737,8 +790,6 @@ int main(int argc, char *argv[])
 		  cerr << "line of code: " << line << "\tWord: " << s << endl;
 #endif
 		  a( line );  processed=1;
-
-		  
 		  addWord( stringToHexValue(s.substr(1,s.length())) );
 		}
 
