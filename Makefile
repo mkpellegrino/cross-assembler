@@ -8,7 +8,7 @@ all: clean cross
 cross:  cross.cpp
 	g++ cross.cpp $(CPPFLAGS) $(OPT_SIZE) -o cross
 	g++ cross.cpp $(DEBUG) $(CPPFLAGS) -o cross-debug
-	strip -no_uuid -A -u -S -X -N -x cross
+	strip -no_uuid -A -u -S -X -x cross
 
 clean:
 	rm -f ./cross
